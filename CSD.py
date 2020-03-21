@@ -1,8 +1,8 @@
-import numpy as np
-import pandas as pd
-import scipy.stats as st
-import statsmodels as sm
-import matplotlib
+import numpy as np # ver 1.18.1
+import pandas as pd # ver 1.0.2
+import scipy.stats as st # scipy ver 1.4.1
+import statsmodels as sm # ver0.11.0
+import matplotlib # ver 3.1.3
 import matplotlib.pyplot as plt
 import warnings
 import time
