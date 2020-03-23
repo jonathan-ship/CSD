@@ -1,14 +1,15 @@
-import numpy as np # ver 1.18.1
-import pandas as pd # ver 1.0.2
-import scipy.stats as st # scipy ver 1.4.1
-import statsmodels as sm # ver0.11.0
-import matplotlib # ver 3.1.3
+import numpy as np  # ver 1.18.1
+import pandas as pd  # ver 1.0.2
+import scipy.stats as st  # scipy ver 1.4.1
+import statsmodels as sm  # ver0.11.0
+import matplotlib  # ver 3.1.3
 import matplotlib.pyplot as plt
 import warnings
 import time
 from datetime import datetime
-##TEST test
 
+
+##TEST test
 
 
 ########## 함수 정의 부분 #############
@@ -17,7 +18,6 @@ from datetime import datetime
 
 def set_data(csv_name, start_dates, final_dates,
              time_range=None, del_nan=True, del_inconsistency=True):
-
     ### 파일 읽기
     # pd.read_csv
     original_df = pd.read_csv('./' + csv_name, encoding='utf-8')
@@ -30,7 +30,6 @@ def set_data(csv_name, start_dates, final_dates,
         start_dates[i] += '_S'
     for i in range(len(final_dates)):
         final_dates[i] += '_F'
-
 
     df_dates.columns = start_dates + final_dates
 
@@ -66,7 +65,6 @@ def set_data(csv_name, start_dates, final_dates,
 ###########################  2. 기본 계수 계산  ########################
 
 def cal_var(df_dates, process_names, start_dates, final_dates):
-
     var_table = pd.DataFrame()
 
     ## te, ce 계산
@@ -137,7 +135,6 @@ def cal_var(df_dates, process_names, start_dates, final_dates):
     # iat_table은 첫번째 프로세스의 시작일에서 도착간 간격을 계산한 값. ndarray 형태.
 
 
-
 ###########################  3. utilization 계산  ########################
 
 ## 주어진 m에 따른 u 계산
@@ -156,10 +153,10 @@ def cal_u(var_table, set_m):
 
     return var_table
 
+
 ## 목표하는 u를 맞추는 m 과 그에 따른 u 계산
 
 def target_u(var_table, set_u):
-
     # 목표 ra, te, u 이용해서 역으로 m 계산, int로 바꿈
 
     ra = var_table.loc[['Ra']].values.flatten()
@@ -171,6 +168,10 @@ def target_u(var_table, set_u):
 
     m = np.round(m.astype(np.double))
 
+    for i in range(len(m)):
+        if m[i] == 0:
+            m[i] = 1
+
     # 위에서 구한 m에 따른 u 다시 계산
     u = ra * te / m
 
@@ -179,6 +180,7 @@ def target_u(var_table, set_u):
     var_table.loc['u', :] = u
 
     return var_table
+
 
 ###########################  4. 주요 변수 계산  ########################
 
@@ -212,10 +214,12 @@ def cal_result_table(var_table, process_names):
     return result_table
     # result_table은 칼럼으로 각 프로세스 명을, 인덱스로 CT, CTq, WIP, WIPq 을 갖는 데이터프레임으로.
 
+
 def cal_cd(ca, ce, u, m):
     cd = 1 + (1 - u * u) * (ca * ca - 1) + (u * u) * (ce * ce - 1) / np.sqrt(m)
     cd = np.sqrt(cd)
     return cd
+
 
 def cal_result(te, ce, ra, ca, u, m):
     CTq = (((ca * ca) + (ce * ce)) / 2) * (np.power(u, np.sqrt(2 * (m + 1)) - 1) / (m * (1 - u))) * te
@@ -225,9 +229,9 @@ def cal_result(te, ce, ra, ca, u, m):
 
     return CTq, CT, WIPq, WIP
 
+
 # data : pd.Series form
 def best_fit_distribution(data, bins=None, ax=None):
-
     if bins == None:
         bins = int(np.round(data.max() - data.min()))
 
@@ -298,7 +302,6 @@ def best_fit_distribution(data, bins=None, ax=None):
             pass
 
     return (best_distribution.name, best_params)
-
 
 
 class CSD_Calculator:
