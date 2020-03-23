@@ -230,12 +230,12 @@ def cal_result(te, ce, ra, ca, u, m):
     return CTq, CT, WIPq, WIP
 
 
-# data : pd.Series form
-def best_fit_distribution(data, bins=None, ax=None):
+##########################  6. 분포 fitting 함수  ######################
+def best_fit_distribution(data, factor='sse', bins=None, ax=None):
     if bins == None:
         bins = int(np.round(data.max() - data.min()))
 
-    print(bins)
+    #     print(bins)
 
     y, x = np.histogram(data, bins=bins, density=True)
     x = (x + np.roll(x, -1))[:-1] / 2.0
@@ -285,23 +285,183 @@ def best_fit_distribution(data, bins=None, ax=None):
                 loglh = distribution.logpdf(data, arg, loc, scale).sum()
                 sse = np.sum(np.power(y - pdf, 2.0))
 
-                print(distribution, loglh, sse)
+                #                 print(distribution, loglh, sse)
 
                 # identify if this distribution is better
-                #                if best_loglh < loglh :
-                #                    best_distribution = distribution
-                #                    best_params = params
-                #                    best_loglh = loglh
-
-                if best_sse > sse:
-                    best_distribution = distribution
-                    best_params = params
-                    best_sse = sse
+                if factor == 'loglh':
+                    if best_loglh < loglh:
+                        best_distribution = distribution
+                        best_params = params
+                        best_loglh = loglh
+                elif factor == 'sse':
+                    if best_sse > sse:
+                        best_distribution = distribution
+                        best_params = params
+                        best_sse = sse
+                else:
+                    break
 
         except Exception:
             pass
 
     return (best_distribution.name, best_params)
+
+
+def searcher(dist, params, target_value, step_size, tunning_param='scale', _round=True):
+    arg = params[:-2]
+    loc = params[-2]
+    scale = params[-1]
+
+    if tunning_param == 'scale':
+        origin_param = scale
+    else:
+        print("Select valid tunning parameter")
+
+    count = 0
+    while True:
+
+        errors = np.empty(9)
+        errors[:] = np.inf
+
+        if _round == True:
+            for i in range(9):
+                temp_param = origin_param + step_size * (i - 4)
+                #                 print(arg, loc, temp_param)
+                try:
+                    temp = dist.rvs(arg, loc, temp_param, size=1000000)
+                    temp = temp[temp > 0]
+                    temp = np.round(temp)
+                    #                     print(target_value, temp.mean())
+                    errors[i] = np.absolute(target_value - temp.mean())
+                except:
+                    #                     print('out' + str(i))
+                    pass
+
+        else:
+            for i in range(9):
+                temp_param = origin_param + step_size * (i - 4)
+                #                 print(arg, loc, temp_param)
+                try:
+                    temp = dist.rvs(arg, loc, temp_param, size=1000000)
+                    temp = temp[temp > 0]
+                    #                     temp = np.round(temp)
+                    #                     print(target_value, temp.mean())
+                    errors[i] = np.absolute(target_value - temp.mean())
+                except:
+                    #                     print('out' + str(i))
+                    pass
+
+        tunned_param_index = errors.argmin()
+        tunned_param = origin_param + step_size * (tunned_param_index - 4)
+        tunned_error = errors.min()
+
+        origin_param = tunned_param
+
+        #         print(errors)
+        #         print("tunned_param_index : ", tunned_param_index)
+
+        if tunned_param_index != 0 and tunned_param_index != 8:
+            break
+
+        count += 1
+        if count == 10:
+            print("Went out of range, fitting failed")
+            break
+    #     print(tunned_param)
+    print("Error :", tunned_error)
+    return tunned_param, tunned_error
+
+
+def distribution_tunning(data, dist, params, accuracy=0.1, _round=True):
+    # target 값 설정
+    target = data.mean()
+
+    ## 튜닝 시작
+
+    # scale tunning
+    origin_scale = params[-1]
+
+    step_size = 1
+    for i in range(5):
+        temp_scale, tunned_error = searcher(dist, params, target, step_size=step_size, _round=_round)
+
+        temp_list = list(params)
+        temp_list[-1] = temp_scale
+        params = tuple(temp_list)
+
+        step_size *= 0.1
+        if tunned_error < accuracy:
+            break
+
+    return dist, params
+
+
+def distribution_finder(table, quantile=None, factor='sse',
+                        tunning=True, accuracy=0.01, _round=True):
+    temptime = time.time()
+
+    if type(table) == np.ndarray:
+        table = pd.DataFrame(table)
+
+    dist_list = []
+    params_list = []
+    str_list = []
+    result_list = []
+    cv_list = []
+
+    for i, col in zip(range(len(table)), table):
+        data = pd.Series(table[col], copy=True)
+
+        if quantile != None:
+            data = data[data <= data.quantile(quantile)]
+
+        best_fit_name, best_fit_params = best_fit_distribution(data, factor=factor)
+        best_dist = getattr(st, best_fit_name)
+
+        if tunning == True:
+            print("Distribution " + str(i) + " is tunning...")
+            best_dist, best_params = distribution_tunning(data, best_dist, best_fit_params, accuracy=accuracy,
+                                                          _round=_round)
+
+        param_names = (best_dist.shapes + ', loc, scale').split(', ') if best_dist.shapes else ['loc', 'scale']
+        param_str = ', '.join(['{}={:0.2f}'.format(k, v) for k, v in zip(param_names, best_fit_params)])
+        dist_str = '{}({})'.format(best_fit_name, param_str)
+
+        params = best_params
+        arg = params[:-2]
+        loc = params[-2]
+        scale = params[-1]
+
+        test = best_dist.rvs(arg, loc, scale, size=1000000)
+        test = test[test > 0]
+        if _round == True:
+            test = np.round(test)
+        test = pd.Series(test)
+
+        result_list.append(pd.DataFrame({'Original': data.describe(), 'Fitting': test.describe()}))
+        cv_list.append("\nCV"
+                       + "\nOriginal : " + str(round(data.std() / data.mean(), 2))
+                       + "    Fitting : " + str(round(test.std() / test.mean(), 2)))
+
+        dist_list.append(best_dist)
+        params_list.append(best_fit_params)
+        str_list.append(dist_str)
+
+    print("\n\n\nFound distributions are :")
+    for i, str_ in zip(range(len(str_list)), str_list):
+        print(str(i) + " : " + str_)
+
+    print("\n\nComparing original data with fitted distribution")
+    for i, result, cv in zip(range(len(result_list)), result_list, cv_list):
+        print(str(i) + " : ")
+        print(result)
+        print(cv)
+        print('\n\n')
+
+    print("Process finished in " + str(time.time() - temptime) + " sec")
+
+    return dist_list, params_list
+
 
 
 class CSD_Calculator:
@@ -373,3 +533,5 @@ class CSD_Calculator:
         # num_act
         # input : activity, span
         # output : graph
+
+    # def distribution_finder(self, table,
