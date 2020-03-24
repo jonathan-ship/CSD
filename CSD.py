@@ -368,7 +368,7 @@ def searcher(dist, params, target_value, step_size, tunning_param='scale', _roun
             print("Went out of range, fitting failed")
             break
     #     print(tunned_param)
-    print("Error :", tunned_error)
+    # print("Error :", tunned_error)
     return tunned_param, tunned_error
 
 
@@ -381,6 +381,7 @@ def distribution_tunning(data, dist, params, accuracy=0.1, _round=True):
     # scale tunning
     origin_scale = params[-1]
 
+    tunned_error = accuracy
     step_size = 1
     for i in range(5):
         temp_scale, tunned_error = searcher(dist, params, target, step_size=step_size, _round=_round)
@@ -393,6 +394,7 @@ def distribution_tunning(data, dist, params, accuracy=0.1, _round=True):
         if tunned_error < accuracy:
             break
 
+    print("Tunned error :", tunned_error)
     return dist, params
 
 
