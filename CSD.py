@@ -400,7 +400,11 @@ def distribution_finder(table, quantile=None, factor='sse',
                         tunning=True, accuracy=0.01, _round=True):
     temptime = time.time()
 
-    if type(table) == np.ndarray:
+    if type(table) == pd.DataFrame:
+        pass
+    elif type(table) == np.ndarray:
+        table = pd.DataFrame(table)
+    elif type(table) == pd.Series:
         table = pd.DataFrame(table)
 
     dist_list = []
