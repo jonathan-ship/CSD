@@ -426,14 +426,14 @@ def distribution_finder(table, quantile=None, factor='sse',
 
         if tunning == True:
             print("Distribution " + str(i) + " is tunning...")
-            best_dist, best_params = distribution_tunning(data, best_dist, best_fit_params, accuracy=accuracy,
+            best_dist, best_fit_params = distribution_tunning(data, best_dist, best_fit_params, accuracy=accuracy,
                                                           _round=_round)
 
         param_names = (best_dist.shapes + ', loc, scale').split(', ') if best_dist.shapes else ['loc', 'scale']
         param_str = ', '.join(['{}={:0.2f}'.format(k, v) for k, v in zip(param_names, best_fit_params)])
         dist_str = '{}({})'.format(best_fit_name, param_str)
 
-        params = best_params
+        params = best_fit_params
         arg = params[:-2]
         loc = params[-2]
         scale = params[-1]
